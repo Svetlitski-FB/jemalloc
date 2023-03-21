@@ -51,46 +51,41 @@ hpdata_reserve_alloc(hpdata_t *hpdata, size_t sz) {
 	assert(!hpdata->h_in_psset || hpdata->h_updating);
 	assert(hpdata->h_alloc_allowed);
 	assert((sz & PAGE_MASK) == 0);
-	size_t npages = sz >> LG_PAGE;
-	assert(npages <= hpdata_longest_free_range_get(hpdata));
+	const size_t npages = sz >> LG_PAGE;
+	const size_t longest_free_range = hpdata_longest_free_range_get(hpdata);
+	assert(npages <= longest_free_range);
 
-	size_t result;
-
-	size_t start = 0;
-	/*
-	 * These are dead stores, but the compiler will issue warnings on them
-	 * since it can't tell statically that found is always true below.
-	 */
-	size_t begin = 0;
-	size_t len = 0;
-
-	size_t largest_unchosen_range = 0;
-	while (true) {
-		bool found = fb_urange_iter(hpdata->active_pages,
-		    HUGEPAGE_PAGES, start, &begin, &len);
-		/*
-		 * A precondition to this function is that hpdata must be able
-		 * to serve the allocation.
-		 */
-		assert(found);
-		assert(len <= hpdata_longest_free_range_get(hpdata));
-		if (len >= npages) {
-			/*
-			 * We use first-fit within the page slabs; this gives
-			 * bounded worst-case fragmentation within a slab.  It's
-			 * not necessarily right; we could experiment with
-			 * various other options.
-			 */
-			break;
+	size_t result_begin = SIZE_T_MAX;
+	size_t result_len = SIZE_T_MAX;
+	size_t second_longest_free_range = 0;
+	size_t num_longest_free_range = 0;
+	for (size_t start = 0, begin, len;
+	     start < HUGEPAGE_PAGES &&
+	     fb_urange_iter(hpdata->active_pages, HUGEPAGE_PAGES, start, &begin, &len);
+	     start = begin + len) {
+		assert(len <= longest_free_range);
+		if (len == longest_free_range) {
+			num_longest_free_range++;
+		} else if (len > second_longest_free_range) {
+			second_longest_free_range = len;
 		}
-		if (len > largest_unchosen_range) {
-			largest_unchosen_range = len;
+
+		if (len >= npages && len < result_len) {
+			 /* We use best-fit within the page slabs. */
+			result_begin = begin;
+			result_len = len;
 		}
-		start = begin + len;
 	}
-	/* We found a range; remember it. */
-	result = begin;
-	fb_set_range(hpdata->active_pages, HUGEPAGE_PAGES, begin, npages);
+	/*
+	 * A precondition to this function is that hpdata must be able
+	 * to serve the allocation.
+	 */
+	assert(result_begin != SIZE_T_MAX);
+	assert(result_len != SIZE_T_MAX);
+	assert(result_len >= npages);
+	assert(second_longest_free_range < longest_free_range);
+	assert(num_longest_free_range > 0);
+	fb_set_range(hpdata->active_pages, HUGEPAGE_PAGES, result_begin, npages);
 	hpdata->h_nactive += npages;
 
 	/*
@@ -98,39 +93,24 @@ hpdata_reserve_alloc(hpdata_t *hpdata, size_t sz) {
 	 * count if so.
 	 */
 	size_t new_dirty = fb_ucount(hpdata->touched_pages,  HUGEPAGE_PAGES,
-	    result, npages);
-	fb_set_range(hpdata->touched_pages, HUGEPAGE_PAGES, result, npages);
+	    result_begin, npages);
+	fb_set_range(hpdata->touched_pages, HUGEPAGE_PAGES, result_begin, npages);
 	hpdata->h_ntouched += new_dirty;
 
 	/*
-	 * If we allocated out of a range that was the longest in the hpdata, it
-	 * might be the only one of that size and we'll have to adjust the
-	 * metadata.
+	 * If we allocated out of a range that was the longest in the hpdata and
+	 * it was the only one of that size, we'll have to adjust the metadata.
 	 */
-	if (len == hpdata_longest_free_range_get(hpdata)) {
-		start = begin + npages;
-		while (start < HUGEPAGE_PAGES) {
-			bool found = fb_urange_iter(hpdata->active_pages,
-			    HUGEPAGE_PAGES, start, &begin, &len);
-			if (!found) {
-				break;
-			}
-			assert(len <= hpdata_longest_free_range_get(hpdata));
-			if (len == hpdata_longest_free_range_get(hpdata)) {
-				largest_unchosen_range = len;
-				break;
-			}
-			if (len > largest_unchosen_range) {
-				largest_unchosen_range = len;
-			}
-			start = begin + len;
-		}
-		hpdata_longest_free_range_set(hpdata, largest_unchosen_range);
+	if (result_len == longest_free_range && num_longest_free_range == 1) {
+		size_t remainder = longest_free_range - npages;
+		hpdata_longest_free_range_set(hpdata,
+		                              remainder > second_longest_free_range ? remainder
+		                              : second_longest_free_range);
 	}
 
 	hpdata_assert_consistent(hpdata);
 	return (void *)(
-	    (uintptr_t)hpdata_addr_get(hpdata) + (result << LG_PAGE));
+	    (uintptr_t)hpdata_addr_get(hpdata) + (result_begin << LG_PAGE));
 }
 
 void
