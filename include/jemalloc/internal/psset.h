@@ -66,7 +66,7 @@ struct psset_s {
 	 * The pageslabs, quantized by the size class of the largest contiguous
 	 * free run of pages in a pageslab.
 	 */
-	hpdata_age_heap_t pageslabs[PSSET_NPSIZES];
+	hpdata_nallocations_heap_t pageslabs[PSSET_NPSIZES];
 	/* Bitmap for which set bits correspond to non-empty heaps. */
 	fb_group_t pageslab_bitmap[FB_NGROUPS(PSSET_NPSIZES)];
 	/*

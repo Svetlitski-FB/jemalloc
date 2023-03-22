@@ -26,8 +26,6 @@ struct hpa_central_s {
 	size_t eden_len;
 	/* Source for metadata. */
 	base_t *base;
-	/* Number of grow operations done on this hpa_central_t. */
-	uint64_t age_counter;
 
 	/* The HPA hooks. */
 	hpa_hooks_t hooks;
@@ -100,13 +98,6 @@ struct hpa_shard_s {
 	edata_cache_fast_t ecf;
 
 	psset_t psset;
-
-	/*
-	 * How many grow operations have occurred.
-	 *
-	 * Guarded by grow_mtx.
-	 */
-	uint64_t age_counter;
 
 	/* The arena ind we're associated with. */
 	unsigned ind;

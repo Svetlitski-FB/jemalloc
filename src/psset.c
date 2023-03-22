@@ -8,7 +8,7 @@
 void
 psset_init(psset_t *psset) {
 	for (unsigned i = 0; i < PSSET_NPSIZES; i++) {
-		hpdata_age_heap_new(&psset->pageslabs[i]);
+		hpdata_nallocations_heap_new(&psset->pageslabs[i]);
 	}
 	fb_init(psset->pageslab_bitmap, PSSET_NPSIZES);
 	memset(&psset->merged_stats, 0, sizeof(psset->merged_stats));
@@ -94,18 +94,18 @@ psset_bin_stats_remove(psset_t *psset, psset_bin_stats_t *binstats,
 
 static void
 psset_hpdata_heap_remove(psset_t *psset, pszind_t pind, hpdata_t *ps) {
-	hpdata_age_heap_remove(&psset->pageslabs[pind], ps);
-	if (hpdata_age_heap_empty(&psset->pageslabs[pind])) {
+	hpdata_nallocations_heap_remove(&psset->pageslabs[pind], ps);
+	if (hpdata_nallocations_heap_empty(&psset->pageslabs[pind])) {
 		fb_unset(psset->pageslab_bitmap, PSSET_NPSIZES, (size_t)pind);
 	}
 }
 
 static void
 psset_hpdata_heap_insert(psset_t *psset, pszind_t pind, hpdata_t *ps) {
-	if (hpdata_age_heap_empty(&psset->pageslabs[pind])) {
+	if (hpdata_nallocations_heap_empty(&psset->pageslabs[pind])) {
 		fb_set(psset->pageslab_bitmap, PSSET_NPSIZES, (size_t)pind);
 	}
-	hpdata_age_heap_insert(&psset->pageslabs[pind], ps);
+	hpdata_nallocations_heap_insert(&psset->pageslabs[pind], ps);
 }
 
 static void
@@ -324,7 +324,7 @@ psset_pick_alloc(psset_t *psset, size_t size) {
 	if (pind == PSSET_NPSIZES) {
 		return hpdata_empty_list_first(&psset->empty);
 	}
-	hpdata_t *ps = hpdata_age_heap_first(&psset->pageslabs[pind]);
+	hpdata_t *ps = hpdata_nallocations_heap_first(&psset->pageslabs[pind]);
 	if (ps == NULL) {
 		return NULL;
 	}

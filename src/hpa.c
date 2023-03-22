@@ -72,7 +72,6 @@ hpa_central_init(hpa_central_t *central, base_t *base, const hpa_hooks_t *hooks)
 	central->base = base;
 	central->eden = NULL;
 	central->eden_len = 0;
-	central->age_counter = 0;
 	central->hooks = *hooks;
 	return false;
 }
@@ -108,7 +107,7 @@ hpa_central_extract(tsdn_t *tsdn, hpa_central_t *central, size_t size,
 			malloc_mutex_unlock(tsdn, &central->grow_mtx);
 			return NULL;
 		}
-		hpdata_init(ps, central->eden, central->age_counter++);
+		hpdata_init(ps, central->eden);
 		central->eden = NULL;
 		central->eden_len = 0;
 		malloc_mutex_unlock(tsdn, &central->grow_mtx);
@@ -158,7 +157,7 @@ hpa_central_extract(tsdn_t *tsdn, hpa_central_t *central, size_t size,
 	assert(central->eden_len % HUGEPAGE == 0);
 	assert(HUGEPAGE_ADDR2BASE(central->eden) == central->eden);
 
-	hpdata_init(ps, central->eden, central->age_counter++);
+	hpdata_init(ps, central->eden);
 
 	char *eden_char = (char *)central->eden;
 	eden_char += HUGEPAGE;
@@ -193,7 +192,6 @@ hpa_shard_init(hpa_shard_t *shard, hpa_central_t *central, emap_t *emap,
 	shard->base = base;
 	edata_cache_fast_init(&shard->ecf, edata_cache);
 	psset_init(&shard->psset);
-	shard->age_counter = 0;
 	shard->ind = ind;
 	shard->emap = emap;
 
@@ -567,20 +565,9 @@ hpa_try_alloc_one_no_grow(tsdn_t *tsdn, hpa_shard_t *shard, size_t size,
 
 	psset_update_begin(&shard->psset, ps);
 
-	if (hpdata_empty(ps)) {
-		/*
-		 * If the pageslab used to be empty, treat it as though it's
-		 * brand new for fragmentation-avoidance purposes; what we're
-		 * trying to approximate is the age of the allocations *in* that
-		 * pageslab, and the allocations in the new pageslab are
-		 * definitionally the youngest in this hpa shard.
-		 */
-		hpdata_age_set(ps, shard->age_counter++);
-	}
-
 	void *addr = hpdata_reserve_alloc(ps, size);
 	edata_init(edata, shard->ind, addr, size, /* slab */ false,
-	    SC_NSIZES, /* sn */ hpdata_age_get(ps), extent_state_active,
+	    SC_NSIZES, /* sn */ hpdata_nallocations_get(ps), extent_state_active,
 	    /* zeroed */ false, /* committed */ true, EXTENT_PAI_HPA,
 	    EXTENT_NOT_HEAD);
 	edata_ps_set(edata, ps);

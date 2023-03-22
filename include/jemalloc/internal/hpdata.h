@@ -18,7 +18,7 @@
  * hugepage-sized and hugepage-aligned; it's *potentially* huge.
  */
 typedef struct hpdata_s hpdata_t;
-ph_structs(hpdata_age_heap, hpdata_t);
+ph_structs(hpdata_nallocations_heap, hpdata_t);
 struct hpdata_s {
 	/*
 	 * We likewise follow the edata convention of mangling names and forcing
@@ -31,8 +31,8 @@ struct hpdata_s {
 	 * since that conflicts with a macro defined in Windows headers.
 	 */
 	void *h_address;
-	/* Its age (measured in psset operations). */
-	uint64_t h_age;
+	/* The number of active (i.e. not freed) allocations. */
+	uint64_t h_nallocations;
 	/* Whether or not we think the hugepage is mapped that way by the OS. */
 	bool h_huge;
 
@@ -83,7 +83,7 @@ struct hpdata_s {
 
 	union {
 		/* When nonempty (and also nonfull), used by the psset bins. */
-		hpdata_age_heap_link_t age_link;
+		hpdata_nallocations_heap_link_t nallocations_link;
 		/*
 		 * When empty (or not corresponding to any hugepage), list
 		 * linkage.
@@ -121,7 +121,7 @@ TYPED_LIST(hpdata_empty_list, hpdata_t, ql_link_empty)
 TYPED_LIST(hpdata_purge_list, hpdata_t, ql_link_purge)
 TYPED_LIST(hpdata_hugify_list, hpdata_t, ql_link_hugify)
 
-ph_proto(, hpdata_age_heap, hpdata_t);
+ph_proto(, hpdata_nallocations_heap, hpdata_t);
 
 static inline void *
 hpdata_addr_get(const hpdata_t *hpdata) {
@@ -135,13 +135,8 @@ hpdata_addr_set(hpdata_t *hpdata, void *addr) {
 }
 
 static inline uint64_t
-hpdata_age_get(const hpdata_t *hpdata) {
-	return hpdata->h_age;
-}
-
-static inline void
-hpdata_age_set(hpdata_t *hpdata, uint64_t age) {
-	hpdata->h_age = age;
+hpdata_nallocations_get(const hpdata_t *hpdata) {
+	return hpdata->h_nallocations;
 }
 
 static inline bool
@@ -352,7 +347,7 @@ hpdata_full(hpdata_t *hpdata) {
 	return hpdata->h_nactive == HUGEPAGE_PAGES;
 }
 
-void hpdata_init(hpdata_t *hpdata, void *addr, uint64_t age);
+void hpdata_init(hpdata_t *hpdata, void *addr);
 
 /*
  * Given an hpdata which can serve an allocation request, pick and reserve an

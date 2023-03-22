@@ -4,23 +4,18 @@
 #include "jemalloc/internal/hpdata.h"
 
 static int
-hpdata_age_comp(const hpdata_t *a, const hpdata_t *b) {
-	uint64_t a_age = hpdata_age_get(a);
-	uint64_t b_age = hpdata_age_get(b);
-	/*
-	 * hpdata ages are operation counts in the psset; no two should be the
-	 * same.
-	 */
-	assert(a_age != b_age);
-	return (a_age > b_age) - (a_age < b_age);
+hpdata_nallocations_comp(const hpdata_t *a, const hpdata_t *b) {
+	uint64_t a_nallocations = hpdata_nallocations_get(a);
+	uint64_t b_nallocations = hpdata_nallocations_get(b);
+	return (a_nallocations > b_nallocations) - (a_nallocations < b_nallocations);
 }
 
-ph_gen(, hpdata_age_heap, hpdata_t, age_link, hpdata_age_comp)
+ph_gen(, hpdata_nallocations_heap, hpdata_t, nallocations_link, hpdata_nallocations_comp)
 
 void
-hpdata_init(hpdata_t *hpdata, void *addr, uint64_t age) {
+hpdata_init(hpdata_t *hpdata, void *addr) {
 	hpdata_addr_set(hpdata, addr);
-	hpdata_age_set(hpdata, age);
+	hpdata->h_nallocations = 0;
 	hpdata->h_huge = false;
 	hpdata->h_alloc_allowed = true;
 	hpdata->h_in_psset_alloc_container = false;
@@ -128,6 +123,7 @@ hpdata_reserve_alloc(hpdata_t *hpdata, size_t sz) {
 		hpdata_longest_free_range_set(hpdata, largest_unchosen_range);
 	}
 
+	hpdata->h_nallocations++;
 	hpdata_assert_consistent(hpdata);
 	return (void *)(
 	    (uintptr_t)hpdata_addr_get(hpdata) + (result << LG_PAGE));
@@ -159,6 +155,7 @@ hpdata_unreserve(hpdata_t *hpdata, void *addr, size_t sz) {
 	}
 
 	hpdata->h_nactive -= npages;
+	hpdata->h_nallocations--;
 
 	hpdata_assert_consistent(hpdata);
 }
