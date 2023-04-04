@@ -16,6 +16,7 @@ extern bool opt_abort;
 extern bool opt_abort_conf;
 extern bool opt_trust_madvise;
 extern bool opt_confirm_conf;
+extern bool opt_pa_trace;
 extern bool opt_hpa;
 extern hpa_shard_opts_t opt_hpa_opts;
 extern sec_opts_t opt_hpa_sec_opts;

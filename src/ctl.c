@@ -95,6 +95,7 @@ CTL_PROTO(opt_cache_oblivious)
 CTL_PROTO(opt_debug_double_free_max_scan)
 CTL_PROTO(opt_trust_madvise)
 CTL_PROTO(opt_confirm_conf)
+CTL_PROTO(opt_pa_trace)
 CTL_PROTO(opt_hpa)
 CTL_PROTO(opt_hpa_slab_max_alloc)
 CTL_PROTO(opt_hpa_hugification_threshold)
@@ -417,6 +418,7 @@ static const ctl_named_node_t opt_node[] = {
 	{NAME("cache_oblivious"),	CTL(opt_cache_oblivious)},
 	{NAME("trust_madvise"),	CTL(opt_trust_madvise)},
 	{NAME("confirm_conf"),	CTL(opt_confirm_conf)},
+	{NAME("pa_trace"),	CTL(opt_pa_trace)},
 	{NAME("hpa"),		CTL(opt_hpa)},
 	{NAME("hpa_slab_max_alloc"),	CTL(opt_hpa_slab_max_alloc)},
 	{NAME("hpa_hugification_threshold"),
@@ -2138,6 +2140,7 @@ CTL_RO_NL_GEN(opt_debug_double_free_max_scan,
     opt_debug_double_free_max_scan, unsigned)
 CTL_RO_NL_GEN(opt_trust_madvise, opt_trust_madvise, bool)
 CTL_RO_NL_GEN(opt_confirm_conf, opt_confirm_conf, bool)
+CTL_RO_NL_GEN(opt_pa_trace, opt_pa_trace, bool)
 
 /* HPA options. */
 CTL_RO_NL_GEN(opt_hpa, opt_hpa, bool)

@@ -74,6 +74,7 @@ bool	opt_abort_conf =
     ;
 /* Intentionally default off, even with debug builds. */
 bool	opt_confirm_conf = false;
+bool	opt_pa_trace = false;
 const char	*opt_junk =
 #if (defined(JEMALLOC_DEBUG) && defined(JEMALLOC_FILL))
     "true"
@@ -1237,6 +1238,7 @@ malloc_conf_init_helper(sc_data_t *sc_data, unsigned bin_shard_sizes[SC_NBINS],
 				continue;
 			}
 
+			CONF_HANDLE_BOOL(opt_pa_trace, "pa_trace")
 			CONF_HANDLE_BOOL(opt_abort, "abort")
 			CONF_HANDLE_BOOL(opt_abort_conf, "abort_conf")
 			CONF_HANDLE_BOOL(opt_cache_oblivious, "cache_oblivious")
