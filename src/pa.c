@@ -3,6 +3,13 @@
 
 #include "jemalloc/internal/san.h"
 #include "jemalloc/internal/hpa.h"
+#include "jemalloc/internal/pa_trace_event.h"
+
+#ifdef JEMALLOC_STUB_OUT_PA_TRACE_RECORD_EVENT
+static void record_event(const pa_trace_event_t* _Nonnull payload){}
+#else
+#include "JemallocPaTraceEventQueue.h"
+#endif
 
 static void
 pa_nactive_add(pa_shard_t *shard, size_t add_pages) {
@@ -122,6 +129,11 @@ edata_t *
 pa_alloc(tsdn_t *tsdn, pa_shard_t *shard, size_t size, size_t alignment,
     bool slab, szind_t szind, bool zero, bool guarded,
     bool *deferred_work_generated) {
+	nstime_t timestamp;
+	if (opt_pa_trace) {
+		nstime_init_update(&timestamp);
+	}
+
 	witness_assert_depth_to_rank(tsdn_witness_tsdp_get(tsdn),
 	    WITNESS_RANK_CORE, 0);
 	assert(!guarded || alignment <= PAGE);
@@ -150,6 +162,22 @@ pa_alloc(tsdn_t *tsdn, pa_shard_t *shard, size_t size, size_t alignment,
 		}
 		assert(edata_arena_ind_get(edata) == shard->ind);
 	}
+
+	if (opt_pa_trace) {
+		record_event(&(pa_trace_event_t){
+			.timestamp = timestamp.ns,
+			.edata = (uintptr_t)edata,
+			.size = size,
+			.alignment = alignment,
+			.szind = szind,
+			.arena_index = shard->ind,
+			.is_alloc = true,
+			.slab = slab,
+			.zero = zero,
+			.guarded = guarded,
+		});
+	}
+
 	return edata;
 }
 
@@ -205,6 +233,17 @@ pa_shrink(tsdn_t *tsdn, pa_shard_t *shard, edata_t *edata, size_t old_size,
 void
 pa_dalloc(tsdn_t *tsdn, pa_shard_t *shard, edata_t *edata,
     bool *deferred_work_generated) {
+	if (opt_pa_trace) {
+		nstime_t timestamp;
+		nstime_init_update(&timestamp);
+		record_event(&(pa_trace_event_t){
+				.timestamp = timestamp.ns,
+				.edata = (uintptr_t)edata,
+				.arena_index = shard->ind,
+				.is_alloc = false,
+		});
+	}
+
 	emap_remap(tsdn, shard->emap, edata, SC_NSIZES, /* slab */ false);
 	if (edata_slab_get(edata)) {
 		emap_deregister_interior(tsdn, shard->emap, edata);

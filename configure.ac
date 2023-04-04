@@ -2001,6 +2001,7 @@ dnl Check if we have dlsym support.
 fi
 
 JE_APPEND_VS(CPPFLAGS, -D_REENTRANT)
+JE_APPEND_VS(CPPFLAGS, -DJEMALLOC_STUB_OUT_PA_TRACE_RECORD_EVENT)
 
 dnl Check whether clock_gettime(2) is in libc or librt.
 AC_SEARCH_LIBS([clock_gettime], [rt])
