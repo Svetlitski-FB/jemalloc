@@ -852,6 +852,7 @@ a_prefix##remove(a_rbt_type *rbtree, a_type *node) {			\
 	    }								\
 	}								\
     }									\
+    assert(nodep != NULL);                                              \
     assert(nodep->node == node);					\
     pathp--;								\
     if (pathp->node != node) {						\

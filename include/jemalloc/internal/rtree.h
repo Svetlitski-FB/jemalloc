@@ -299,6 +299,10 @@ rtree_leaf_elm_write(tsdn_t *tsdn, rtree_t *rtree,
 	assert((uintptr_t)contents.edata % EDATA_ALIGNMENT == 0);
 	void *bits;
 	unsigned additional;
+  /* Suppress spurious warning from static analysis */
+  if (config_debug) {
+    additional = 0;
+  }
 
 	rtree_contents_encode(contents, &bits, &additional);
 	rtree_leaf_elm_write_commit(tsdn, rtree, elm, bits, additional);
@@ -481,6 +485,10 @@ rtree_write_range_impl(tsdn_t *tsdn, rtree_t *rtree, rtree_ctx_t *rtree_ctx,
 	 */
 	void *bits;
 	unsigned additional;
+  /* Suppress spurious warning from static analysis */
+  if (config_debug) {
+    additional = 0;
+  }
 	rtree_contents_encode(contents, &bits, &additional);
 
 	rtree_leaf_elm_t *elm = NULL; /* Dead store. */
