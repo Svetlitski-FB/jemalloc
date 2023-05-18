@@ -60,6 +60,7 @@ hpa_do_consistency_checks(hpa_shard_t *shard) {
 
 bool
 hpa_central_init(hpa_central_t *central, base_t *base, const hpa_hooks_t *hooks) {
+    bool unused_variable = false;
 	/* malloc_conf processing should have filtered out these cases. */
 	assert(hpa_supported());
 	bool err;
