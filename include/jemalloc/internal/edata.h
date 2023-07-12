@@ -20,17 +20,18 @@
  * to free up the low bits in the rtree leaf.
  */
 #define EDATA_ALIGNMENT 128
+#define EXTENT_STATE_SHIFT 10
 
 enum extent_state_e {
-	extent_state_active   = 0,
-	extent_state_dirty    = 1,
-	extent_state_muzzy    = 2,
-	extent_state_retained = 3,
-	extent_state_transition = 4, /* States below are intermediate. */
-	extent_state_merging = 5,
-	extent_state_max = 5 /* Sanity checking only. */
+	extent_state_active   = 0U,
+	extent_state_dirty    = 1U << 10,
+	extent_state_muzzy    = 1U << 11,
+	extent_state_retained = 1U << 12,
+	extent_state_transition = 1U << 13, /* States below are intermediate. */
+	extent_state_merging = 1U << 14,
+	extent_state_max = extent_state_merging /* Sanity checking only. */
 };
-typedef enum extent_state_e extent_state_t;
+typedef uint16_t extent_state_t;
 
 enum extent_head_state_e {
 	EXTENT_NOT_HEAD,
@@ -168,7 +169,7 @@ struct edata_s {
 #define EDATA_BITS_GUARDED_SHIFT  (EDATA_BITS_ZEROED_WIDTH + EDATA_BITS_ZEROED_SHIFT)
 #define EDATA_BITS_GUARDED_MASK  MASK(EDATA_BITS_GUARDED_WIDTH, EDATA_BITS_GUARDED_SHIFT)
 
-#define EDATA_BITS_STATE_WIDTH  3
+#define EDATA_BITS_STATE_WIDTH  6
 #define EDATA_BITS_STATE_SHIFT  (EDATA_BITS_GUARDED_WIDTH + EDATA_BITS_GUARDED_SHIFT)
 #define EDATA_BITS_STATE_MASK  MASK(EDATA_BITS_STATE_WIDTH, EDATA_BITS_STATE_SHIFT)
 
@@ -299,8 +300,8 @@ edata_sn_get(const edata_t *edata) {
 
 static inline extent_state_t
 edata_state_get(const edata_t *edata) {
-	return (extent_state_t)((edata->e_bits & EDATA_BITS_STATE_MASK) >>
-	    EDATA_BITS_STATE_SHIFT);
+	return (extent_state_t)(((edata->e_bits & EDATA_BITS_STATE_MASK) >>
+	    EDATA_BITS_STATE_SHIFT) << EXTENT_STATE_SHIFT);
 }
 
 static inline bool
@@ -518,7 +519,7 @@ edata_sn_set(edata_t *edata, uint64_t sn) {
 static inline void
 edata_state_set(edata_t *edata, extent_state_t state) {
 	edata->e_bits = (edata->e_bits & ~EDATA_BITS_STATE_MASK) |
-	    ((uint64_t)state << EDATA_BITS_STATE_SHIFT);
+	    (((uint64_t)state >> EXTENT_STATE_SHIFT) << EDATA_BITS_STATE_SHIFT);
 }
 
 static inline void
