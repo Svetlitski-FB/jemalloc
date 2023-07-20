@@ -318,7 +318,8 @@ arena_large_dalloc_stats_update(tsdn_t *tsdn, arena_t *arena, size_t usize) {
 	index = sz_size2index(usize);
 	hindex = (index >= SC_NBINS) ? index - SC_NBINS : 0;
 
-	locked_inc_u64(tsdn, LOCKEDINT_MTX(arena->stats.mtx),
+	locked_inc_u64(tsdn,
+		LOCKEDINT_MTX(arena->stats.mtx),
 	    &arena->stats.lstats[hindex].ndalloc, 1);
 }
 
