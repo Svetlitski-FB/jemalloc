@@ -65,12 +65,19 @@ get_errno(void) {
 #endif
 }
 
-JEMALLOC_ALWAYS_INLINE void
-util_assume(bool b) {
-	if (!b) {
-		unreachable();
-	}
-}
+#if defined(__clang__) && (__clang_major__ > 3 || \
+    (__clang_major__ == 3 && __clang_minor__ >= 6))
+#define util_assume(...) __builtin_assume(__VA_ARGS__)
+#elif defined(_MSC_VER)
+#define util_assume(...) __assume(__VA_ARGS__)
+#else
+#define util_assume(...)		\
+	do {				\
+		if (!(__VA_ARGS__)) {	\
+			unreachable();	\
+		}			\
+	} while(0)
+#endif
 
 /* ptr should be valid. */
 JEMALLOC_ALWAYS_INLINE void
