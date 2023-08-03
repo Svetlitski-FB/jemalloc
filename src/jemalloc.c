@@ -2992,6 +2992,22 @@ free_default(void *ptr) {
 	}
 }
 
+JEMALLOC_EXPORT void
+je_print_quantization_results(void) {
+	malloc_printf("Longest Free Range: Page Slab Set Heap Index\n");
+	size_t last_range_start = 1;
+	pszind_t last_pind = 0;
+	for (size_t i = 1; i < HUGEPAGE_PAGES; i++) {
+		pszind_t pind = sz_psz2ind(sz_psz_quantize_floor(i << LG_PAGE));
+		if (pind != last_pind) {
+			malloc_printf("[%lu, %lu]: %u\n", last_range_start, i - 1, last_pind);
+			last_range_start = i;
+			last_pind = pind;
+		}
+	}
+	malloc_printf("[%lu, %lu]: %u\n", last_range_start, HUGEPAGE_PAGES - 1, last_pind);
+}
+
 JEMALLOC_EXPORT void JEMALLOC_NOTHROW
 je_free(void *ptr) {
 	LOG("core.free.entry", "ptr: %p", ptr);

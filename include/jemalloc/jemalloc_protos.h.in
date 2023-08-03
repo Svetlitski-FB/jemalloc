@@ -7,6 +7,7 @@ extern JEMALLOC_EXPORT const char	*@je_@malloc_conf;
 extern JEMALLOC_EXPORT void		(*@je_@malloc_message)(void *cbopaque,
     const char *s);
 
+JEMALLOC_EXPORT void @je_@print_quantization_results(void);
 JEMALLOC_EXPORT JEMALLOC_ALLOCATOR JEMALLOC_RESTRICT_RETURN
     void JEMALLOC_SYS_NOTHROW	*@je_@malloc(size_t size)
     JEMALLOC_CXX_THROW JEMALLOC_ATTR(malloc) JEMALLOC_ALLOC_SIZE(1);
