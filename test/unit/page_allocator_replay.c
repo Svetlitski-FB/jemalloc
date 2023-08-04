@@ -111,66 +111,19 @@ init_test_data(size_t num_shards) {
 	return shard_bundles;
 }
 
-#define OFFSET offsetof(hpdata_t, age_link)
-
-typedef void (*hpdata_func_t)(hpdata_t *);
-
-static void
-hpdata_iterate(hpdata_t *hpdata, hpdata_func_t func) {
-	func(hpdata);
-	hpdata_t *leftmost_child = phn_lchild_get(hpdata, OFFSET);
-	if (leftmost_child == NULL) {
-		return;
-	}
-	hpdata_iterate(leftmost_child, func);
-	for (hpdata_t *sibling = phn_next_get(leftmost_child, OFFSET); sibling != NULL;
-	     sibling = phn_next_get(sibling, OFFSET)) {
-		hpdata_iterate(sibling, func);
-	}
-}
-
-static void
-hpdata_age_heap_iterate(hpdata_age_heap_t *heap, hpdata_func_t func) {
-	if (heap->ph.root == NULL) {
-		return;
-	}
-	hpdata_iterate(heap->ph.root, func);
-	for (hpdata_t *sibling = phn_next_get(heap->ph.root, OFFSET); sibling != NULL;
-	     sibling = phn_next_get(sibling, OFFSET)) {
-		hpdata_iterate(sibling, func);
-	}
-}
-
-static size_t observed_fragmentation;
-
-static void
-update_observed_fragmentation(hpdata_t *hpdata) {
-	observed_fragmentation += hpdata_ndirty_get(hpdata);
-}
-
 static size_t
-compute_hpa_fragmentation(size_t num_shards, pa_shard_bundle_t shard_bundles[num_shards]) {
-	observed_fragmentation = 0;
+compute_hpa_dirty_memory(size_t num_shards, pa_shard_bundle_t shard_bundles[num_shards]) {
+	size_t dirty_pages = 0;
 	for (size_t i = 0; i < num_shards; i++) {
 		psset_t *psset = &shard_bundles[i].shard.hpa_shard.psset;
-		for (size_t j = 0; j < 2; j++) {
-			psset_bin_stats_t *empty_slabs_stats = &psset->stats.empty_slabs[j];
-			observed_fragmentation += empty_slabs_stats->ndirty;
-		}
-		for (size_t j = 0; j < 2; j++) {
-			psset_bin_stats_t *full_slab_stats = &psset->stats.full_slabs[j];
-			observed_fragmentation += full_slab_stats->ndirty;
-		}
-		for (size_t j = 0; j < PSSET_NPSIZES; j++) {
-			hpdata_age_heap_iterate(&psset->pageslabs[j], update_observed_fragmentation);
-		}
+		dirty_pages += psset->merged_stats.ndirty;
 	}
-	// Multiplying by 4 to translate from pages to KiB
-	return observed_fragmentation * 4;
+	// Multiplying to translate from pages to KiB
+	return dirty_pages * (PAGE >> 10);
 }
 
 #define MAX_NUM_EDATAS ((1UL << 30) / sizeof(edata_t *))
-#define UPDATE_FRAGMENTATION_INTERVAL 65536
+#define MEASURE_DIRTY_MEMORY_INTERVAL 65536
 
 // These would all be passed to `page_allocator_replay` as arguments,
 // but the way Jemalloc's test framework works makes that difficult. So instead
@@ -189,13 +142,13 @@ TEST_BEGIN(test_page_allocator_replay) {
 	static edata_t *edatas[MAX_NUM_EDATAS];
 	pa_shard_bundle_t *shard_bundles = init_test_data(num_shards);
 	size_t num_invalid_events = 0;
-	const size_t num_fragmentation_measurements = num_events / UPDATE_FRAGMENTATION_INTERVAL;
-	size_t *fragmentation_measurements = malloc(sizeof(size_t[num_fragmentation_measurements]));
+	const size_t num_dirty_memory_measurements = num_events / MEASURE_DIRTY_MEMORY_INTERVAL;
+	size_t *dirty_memory_measurements = malloc(sizeof(size_t[num_dirty_memory_measurements]));
 	for (size_t i = 0; i < num_events; i++) {
-		if (i > 0 && i % UPDATE_FRAGMENTATION_INTERVAL == 0) {
+		if (i > 0 && i % MEASURE_DIRTY_MEMORY_INTERVAL == 0) {
 			fprintf(stderr, "\rProgress: %.1f%%", ((double)i) / ((double)num_events) * 100.0);
-			fragmentation_measurements[i / UPDATE_FRAGMENTATION_INTERVAL] =
-			    compute_hpa_fragmentation(num_shards, shard_bundles);
+			dirty_memory_measurements[i / MEASURE_DIRTY_MEMORY_INTERVAL] =
+			    compute_hpa_dirty_memory(num_shards, shard_bundles);
 		}
 		pa_trace_event_t *event = &events[i];
 		if (event->edata == 0) {
@@ -225,19 +178,19 @@ TEST_BEGIN(test_page_allocator_replay) {
 
 	size_t average_fragmentation = 0;
 	size_t max_fragmentation = 0;
-	for (size_t i = 0; i < num_fragmentation_measurements; i++) {
-		average_fragmentation += fragmentation_measurements[i];
-		max_fragmentation = fragmentation_measurements[i] > max_fragmentation
-		                        ? fragmentation_measurements[i]
+	for (size_t i = 0; i < num_dirty_memory_measurements; i++) {
+		average_fragmentation += dirty_memory_measurements[i];
+		max_fragmentation = dirty_memory_measurements[i] > max_fragmentation
+		                        ? dirty_memory_measurements[i]
 		                        : max_fragmentation;
 	}
-	average_fragmentation /= num_fragmentation_measurements;
+	average_fragmentation /= num_dirty_memory_measurements;
 
-	printf("Average HPA fragmentation: %lu KiB\n", average_fragmentation);
-	printf("Maximum HPA fragmentation: %lu KiB\n", max_fragmentation);
-	printf("All %lu fragmentation measurements:", num_fragmentation_measurements);
-	for (size_t i = 0; i < (num_events / UPDATE_FRAGMENTATION_INTERVAL); i++) {
-		printf("%lu\n", fragmentation_measurements[i]);
+	printf("Average HPA dirty memory: %lu KiB\n", average_fragmentation);
+	printf("Maximum HPA dirty memory: %lu KiB\n", max_fragmentation);
+	printf("All %lu dirty memory measurements:", num_dirty_memory_measurements);
+	for (size_t i = 0; i < (num_events / MEASURE_DIRTY_MEMORY_INTERVAL); i++) {
+		printf("%lu\n", dirty_memory_measurements[i]);
 	}
 }
 TEST_END
